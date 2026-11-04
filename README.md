@@ -44,12 +44,12 @@ Installing and notifications only work once the app is hosted on https (see belo
 
    Then paste `supabase/reminders.secret.sql` into the SQL Editor and click **Run**. This schedules the
    hourly check.
-4. **Host the app** on any static host with https (GitHub Pages, Netlify, Cloudflare Pages). Run
-   `npm run build` and upload the `dist/` folder.
-5. After hosting, set the push "contact" to your site URL (Apple requires a valid one):
+4. **Hosting:** the app is published at https://callofdutygamer1950.github.io/ChoreApp/ by
+   `.github/workflows/deploy.yml` on every push to `main` (repo Settings → Pages → Source: GitHub Actions).
+5. Set the push "contact" to the site URL (Apple requires a valid one):
 
    ```bash
-   npx supabase secrets set VAPID_SUBJECT=https://your-site-url --project-ref bhvpkternndtyvvuwqda
+   npx supabase secrets set VAPID_SUBJECT=https://callofdutygamer1950.github.io/ChoreApp/ --project-ref bhvpkternndtyvvuwqda
    ```
 
 ## Installing on phones
@@ -70,13 +70,12 @@ Send a notification to every subscribed phone right now. Use the CRON_SECRET val
 curl -X POST "https://bhvpkternndtyvvuwqda.supabase.co/functions/v1/send-reminders?force=1" -H "x-cron-secret: YOUR_CRON_SECRET"
 ```
 
-## Removing the test apartment
+## Removing an apartment
 
-Testing created an apartment called "Test Apartment" (code `WQ69SH`) with three "Test:" chores. To remove
-it, run this in the SQL Editor:
+To delete an apartment and all its chores and history, run this in the SQL Editor with its join code:
 
 ```sql
-delete from public.households where join_code = 'WQ69SH';
+delete from public.households where join_code = 'ABC123';
 ```
 
 Any phone that was in it will show the join screen again.
