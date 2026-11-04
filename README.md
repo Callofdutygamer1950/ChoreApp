@@ -32,7 +32,7 @@ Installing and notifications only work once the app is hosted on https (see belo
 
 ## Setup checklist
 
-1. ✅ Run `supabase/schema.sql` in the Supabase SQL Editor.
+1. ✅ Run `supabase/schema.sql` in the Supabase SQL Editor, then each file in `supabase/migrations/` in order.
 2. ✅ Turn on **Authentication → Sign In / Providers → Allow anonymous sign-ins**.
 3. **Deploy the reminder function** (one time). This needs the Supabase CLI login, which opens your browser:
 

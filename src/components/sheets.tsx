@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Sheet } from './ui';
+import { Sheet, SWATCHES } from './ui';
 import * as api from '../lib/api';
 import { formatDay, todayStr } from '../lib/dates';
 import { errorMessage, uuid } from '../lib/storage';
@@ -173,6 +173,8 @@ export function ChoreSheet(props: {
 /** Add, rename, or remove a person. */
 export function MemberSheet(props: {
   member: Member | null;
+  /** The color this person shows in now (or the next default color for a new person). */
+  currentColor: string;
   householdId: string;
   onClose: () => void;
   onSaved: () => void;
@@ -180,7 +182,9 @@ export function MemberSheet(props: {
 }) {
   const { member } = props;
   const [name, setName] = useState(member?.name ?? '');
+  const [color, setColor] = useState(props.currentColor);
   const [busy, setBusy] = useState(false);
+  const isCustom = !SWATCHES.includes(color.toLowerCase());
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true);
@@ -198,8 +202,14 @@ export function MemberSheet(props: {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    if (member) run(() => api.updateMember(member.id, { name: name.trim() }), 'Saved');
-    else run(() => api.addMember(props.householdId, name.trim()), 'Person added');
+    // Only save a color when it was changed, so untouched people keep the automatic default.
+    const changed = color.toLowerCase() !== props.currentColor.toLowerCase();
+    const picked = changed ? color.toLowerCase() : null;
+    if (member) {
+      run(() => api.updateMember(member.id, picked ? { name: name.trim(), color: picked } : { name: name.trim() }), 'Saved');
+    } else {
+      run(() => api.addMember(props.householdId, name.trim(), picked), 'Person added');
+    }
   }
 
   function remove() {
@@ -214,6 +224,19 @@ export function MemberSheet(props: {
           Name
           <input value={name} maxLength={40} autoFocus={!member} onChange={(e) => setName(e.target.value)} />
         </label>
+        <fieldset className="swatches">
+          <legend>Color</legend>
+          {SWATCHES.map((c) => (
+            <button key={c} type="button" className={`swatch${color.toLowerCase() === c ? ' selected' : ''}`}
+              style={{ background: c }} aria-label={`Color ${c}`} aria-pressed={color.toLowerCase() === c}
+              onClick={() => setColor(c)} />
+          ))}
+          <label className={`swatch custom${isCustom ? ' selected' : ''}`} style={isCustom ? { background: color } : undefined}
+            title="Custom color">
+            <span aria-hidden="true">{isCustom ? '' : '+'}</span>
+            <input type="color" value={color} aria-label="Custom color" onChange={(e) => setColor(e.target.value)} />
+          </label>
+        </fieldset>
         <div className="form-actions">
           {member && <button type="button" className="btn danger-text" disabled={busy} onClick={remove}>Remove</button>}
           <button type="submit" className="btn primary" disabled={busy || !name.trim()}>Save</button>

@@ -8,6 +8,8 @@ export interface Member {
   id: string;
   household_id: string;
   name: string;
+  /** Picked color like "#2f80ed", or null to use the default. */
+  color: string | null;
   archived: boolean;
   created_at: string;
 }

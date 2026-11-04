@@ -73,6 +73,9 @@ export function SettingsTab(props: {
             <span><i className="dot" style={{ background: colors.get(props.me.id) }} /> {props.me.name}</span>
             <button className="btn small" onClick={props.onSwitchPerson}>Switch person</button>
           </div>
+          <button className="row-item tap add" onClick={() => props.onEditMember(props.me)}>
+            <span>Change my name or color</span>
+          </button>
         </div>
       </section>
 

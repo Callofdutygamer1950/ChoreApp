@@ -5,7 +5,7 @@ import { todayStr } from './lib/dates';
 import { choreStates, type ChoreState } from './lib/status';
 import { errorMessage, getItem, removeItem, setItem, uuid } from './lib/storage';
 import type { Chore, Completion, Member } from './lib/types';
-import { Icon, Toast, type ToastData } from './components/ui';
+import { Icon, memberColors, nextDefaultColor, Toast, type ToastData } from './components/ui';
 import { ChoreSheet, EntrySheet, MemberSheet } from './components/sheets';
 import { PickMember, Welcome } from './screens/Onboarding';
 import { ChoresTab } from './screens/ChoresTab';
@@ -42,7 +42,9 @@ function useToday() {
   return today;
 }
 
-const TAB_TITLES: Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', settings: 'Settings' };
+const COOLDOWN_MS = 2 * 60_000;
+
+const TAB_TITLES:Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', settings: 'Settings' };
 
 export default function App() {
   const hh = useHousehold();
@@ -58,6 +60,25 @@ export default function App() {
   const dismissToast = useCallback(() => setToast(null), []);
   const closeSheet = useCallback(() => setSheet(null), []);
   const me = members.find((m) => m.id === memberId && !m.archived);
+
+  // A chore marked done today is locked for 2 minutes (deleting/undoing the entry unlocks it).
+  const [now, setNow] = useState(() => Date.now());
+  const locks = useMemo(() => {
+    const t = Math.max(now, Date.now());
+    const map = new Map<string, number>();
+    for (const c of completions) {
+      if (c.done_on !== today) continue;
+      const until = Date.parse(c.created_at) + COOLDOWN_MS;
+      if (until > t) map.set(c.chore_id, Math.max(map.get(c.chore_id) ?? 0, until));
+    }
+    return map;
+  }, [completions, today, now]);
+  useEffect(() => {
+    if (locks.size === 0) return;
+    const next = Math.min(...locks.values());
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, next - Date.now()) + 100);
+    return () => clearTimeout(timer);
+  }, [locks]);
 
   if (hh.phase === 'loading') {
     return <div className="splash"><img src="icons/icon-192.png" alt="" width={64} height={64} /></div>;
@@ -88,7 +109,34 @@ export default function App() {
     return <PickMember household={household} members={members} onPick={setMemberId} onAdded={hh.reload} />;
   }
 
+  function undoEntry(entry: Completion, saving: Promise<boolean> = Promise.resolve(true)) {
+    hh.setCompletions((prev) => prev.filter((c) => c.id !== entry.id));
+    (async () => {
+      try {
+        if (!(await saving)) return; // never saved, nothing to delete
+        await api.deleteCompletion(entry.id);
+      } catch (e) {
+        notify(`Couldn't undo: ${errorMessage(e)}`, true);
+        hh.reload();
+      }
+    })();
+  }
+
   function markDone(s: ChoreState) {
+    const lockedUntil = locks.get(s.chore.id);
+    if (lockedUntil) {
+      const secs = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 1000));
+      const wait = secs > 60 ? `${Math.ceil(secs / 60)} min` : `${secs} sec`;
+      const recent = completions
+        .filter((c) => c.chore_id === s.chore.id && c.done_on === today)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      setToast({
+        text: `Just marked done. Try again in ${wait}.`,
+        actions: recent ? [{ label: 'Undo', run: () => undoEntry(recent) }] : [],
+      });
+      return;
+    }
+    setNow(Date.now());
     const entry: Completion = {
       id: uuid(),
       household_id: household!.id,
@@ -100,28 +148,19 @@ export default function App() {
     };
     hh.setCompletions((prev) => [entry, ...prev]);
     const { created_at: _, ...row } = entry;
-    const saving = api.addCompletion(row).catch((e) => {
-      hh.setCompletions((prev) => prev.filter((c) => c.id !== entry.id));
-      notify(`Couldn't save: ${errorMessage(e)}`, true);
-      throw e;
-    });
+    const saving = api.addCompletion(row).then(
+      () => true,
+      (e) => {
+        hh.setCompletions((prev) => prev.filter((c) => c.id !== entry.id));
+        notify(`Couldn't save: ${errorMessage(e)}`, true);
+        return false;
+      },
+    );
     setToast({
       text: `${s.chore.name} done`,
       actions: [
         { label: 'Add note', run: () => setSheet({ kind: 'entry', entry }) },
-        {
-          label: 'Undo',
-          run: async () => {
-            hh.setCompletions((prev) => prev.filter((c) => c.id !== entry.id));
-            try {
-              await saving;
-              await api.deleteCompletion(entry.id);
-            } catch (e) {
-              notify(`Couldn't undo: ${errorMessage(e)}`, true);
-              hh.reload();
-            }
-          },
-        },
+        { label: 'Undo', run: () => undoEntry(entry, saving) },
       ],
     });
   }
@@ -138,7 +177,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'chores' && (
-          <ChoresTab states={states} members={members} today={today} onDone={markDone}
+          <ChoresTab states={states} members={members} today={today} onDone={markDone} locked={locks}
             onAddChore={() => setSheet({ kind: 'chore', chore: null })} />
         )}
         {tab === 'calendar' && (
@@ -176,6 +215,7 @@ export default function App() {
       )}
       {sheet?.kind === 'member' && (
         <MemberSheet member={sheet.member} householdId={household.id}
+          currentColor={sheet.member ? memberColors(members).get(sheet.member.id)! : nextDefaultColor(members)}
           onClose={closeSheet} onSaved={hh.reload} notify={notify} />
       )}
 

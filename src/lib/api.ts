@@ -52,10 +52,12 @@ export async function renameHousehold(id: string, name: string) {
   check(await supabase.from('households').update({ name }).eq('id', id));
 }
 
-export async function addMember(householdId: string, name: string): Promise<Member> {
-  return check(await supabase.from('members').insert({ household_id: householdId, name }).select().single()) as Member;
+export async function addMember(householdId: string, name: string, color: string | null = null): Promise<Member> {
+  const row: { household_id: string; name: string; color?: string } = { household_id: householdId, name };
+  if (color) row.color = color;
+  return check(await supabase.from('members').insert(row).select().single()) as Member;
 }
-export async function updateMember(id: string, patch: Partial<Pick<Member, 'name' | 'archived'>>) {
+export async function updateMember(id: string, patch: Partial<Pick<Member, 'name' | 'archived' | 'color'>>) {
   check(await supabase.from('members').update(patch).eq('id', id));
 }
 

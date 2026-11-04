@@ -46,12 +46,19 @@ export function Toast({ toast, onDismiss }: { toast: ToastData; onDismiss: () =>
   );
 }
 
-const PALETTE = ['#2f80ed', '#e2702b', '#27a35f', '#b14fd6', '#d9405b', '#159aa8', '#b38b00', '#6b6fd8'];
+/** Preset colors people can pick from. The first 8 are also the defaults, in join order. */
+export const SWATCHES = [
+  '#2f80ed', '#e2702b', '#27a35f', '#b14fd6', '#d9405b', '#159aa8',
+  '#b38b00', '#6b6fd8', '#e8579a', '#8a6a4f', '#7cb342', '#607080',
+];
 
-/** Stable color per person, based on the order they joined. */
+/** Color each person picked, or a default based on the order they joined. */
 export function memberColors(members: Member[]): Map<string, string> {
-  return new Map(members.map((m, i) => [m.id, PALETTE[i % PALETTE.length]]));
+  return new Map(members.map((m, i) => [m.id, m.color ?? SWATCHES[i % 8]]));
 }
+
+/** Default color the next new person would get. */
+export const nextDefaultColor = (members: Member[]) => SWATCHES[members.length % 8];
 
 const ICONS: Record<string, ReactNode> = {
   list: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></>,

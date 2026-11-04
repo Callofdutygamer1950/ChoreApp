@@ -9,6 +9,8 @@ export function ChoresTab(props: {
   today: string;
   onDone: (s: ChoreState) => void;
   onAddChore: () => void;
+  /** Chores that were just marked done and can't be marked again yet. */
+  locked: Map<string, number>;
 }) {
   const { states } = props;
   const names = new Map(props.members.map((m) => [m.id, m.name]));
@@ -41,8 +43,9 @@ export function ChoresTab(props: {
             {s.last?.note && <span className="chore-note"> · “{s.last.note}”</span>}
           </div>
         </div>
-        <button className={`done-btn${doneToday ? ' is-done' : ''}`} onClick={() => props.onDone(s)}
-          aria-label={`Mark ${s.chore.name} done`}>
+        <button className={`done-btn${doneToday ? ' is-done' : ''}${props.locked.has(s.chore.id) ? ' is-locked' : ''}`}
+          onClick={() => props.onDone(s)} aria-label={`Mark ${s.chore.name} done`}
+          aria-disabled={props.locked.has(s.chore.id)}>
           <Icon name="check" size={20} />
           <span>Done</span>
         </button>
@@ -65,6 +68,9 @@ export function ChoresTab(props: {
           <ul className="chore-list">{later.map(row)}</ul>
         </section>
       )}
+      <button className="btn ghost add-chore" onClick={props.onAddChore}>
+        <Icon name="plus" size={18} /> Add chore
+      </button>
     </div>
   );
 }
