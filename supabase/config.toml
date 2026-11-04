@@ -1,0 +1,5 @@
+project_id = "bhvpkternndtyvvuwqda"
+
+# The hourly cron job authenticates with the CRON_SECRET header instead of a user login.
+[functions.send-reminders]
+verify_jwt = false

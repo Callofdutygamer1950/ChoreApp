@@ -1,0 +1,6 @@
+node_modules
+dist
+*.local
+.env.secrets
+supabase/.temp
+supabase/reminders.secret.sql
