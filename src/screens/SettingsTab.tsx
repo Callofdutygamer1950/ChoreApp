@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../lib/api';
-import { hourLabel, intervalLabel } from '../lib/dates';
+import { hourLabel } from '../lib/dates';
+import { scheduleOf, scheduleSummary } from '../lib/schedule';
 import * as push from '../lib/push';
 import { errorMessage } from '../lib/storage';
 import type { Chore, Household, Member } from '../lib/types';
@@ -10,6 +11,8 @@ export function SettingsTab(props: {
   household: Household;
   members: Member[];
   chores: Chore[];
+  /** Chores that are done for good (one-time and done, or ended). */
+  finishedIds: Set<string>;
   me: Member;
   onSwitchPerson: () => void;
   onEditChore: (c: Chore | null) => void;
@@ -25,7 +28,14 @@ export function SettingsTab(props: {
   const [aptName, setAptName] = useState(household.name);
   useEffect(() => setAptName(household.name), [household.name]);
 
-  const joinLink = `${location.origin}${location.pathname}?join=${household.join_code}`;
+  const choreRow = (c: Chore) => (
+    <button key={c.id} className="row-item tap" onClick={() => props.onEditChore(c)}>
+      <span>{c.name}</span>
+      <span className="muted row-detail">{scheduleSummary(scheduleOf(c))}</span>
+    </button>
+  );
+
+  const joinLink =`${location.origin}${location.pathname}?join=${household.join_code}`;
 
   async function share() {
     const text = `Join our apartment on Chores with code ${household.join_code}`;
@@ -82,17 +92,20 @@ export function SettingsTab(props: {
       <section>
         <h3 className="section-title">Chores</h3>
         <div className="card rows">
-          {chores.map((c) => (
-            <button key={c.id} className="row-item tap" onClick={() => props.onEditChore(c)}>
-              <span>{c.name}</span>
-              <span className="muted">{intervalLabel(c.interval_days)}</span>
-            </button>
-          ))}
+          {chores.filter((c) => !props.finishedIds.has(c.id)).map(choreRow)}
           <button className="row-item tap add" onClick={() => props.onEditChore(null)}>
             <span><Icon name="plus" size={18} /> Add chore</span>
           </button>
         </div>
       </section>
+
+      {chores.some((c) => props.finishedIds.has(c.id)) && (
+        <section>
+          <h3 className="section-title">Finished chores</h3>
+          <div className="card rows">{chores.filter((c) => props.finishedIds.has(c.id)).map(choreRow)}</div>
+          <p className="muted fine">One-time chores that are done, and repeats that have ended. To bring one back, delete its entry on the calendar or change how it repeats.</p>
+        </section>
+      )}
 
       <section>
         <h3 className="section-title">People</h3>

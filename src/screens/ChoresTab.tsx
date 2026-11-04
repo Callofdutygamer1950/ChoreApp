@@ -1,4 +1,5 @@
-import { agoLabel, diffDays, intervalLabel } from '../lib/dates';
+import { agoLabel, diffDays } from '../lib/dates';
+import { scheduleOf, scheduleSummary } from '../lib/schedule';
 import { needsDoing, statusText, type ChoreState } from '../lib/status';
 import type { Member } from '../lib/types';
 import { Icon } from '../components/ui';
@@ -18,7 +19,7 @@ export function ChoresTab(props: {
   if (states.length === 0) {
     return (
       <div className="empty">
-        <p>No chores yet.</p>
+        <p>No chores on the list.</p>
         <button className="btn primary" onClick={props.onAddChore}>Add a chore</button>
       </div>
     );
@@ -39,7 +40,7 @@ export function ChoresTab(props: {
           <div className="chore-meta">
             {s.last
               ? <>Last done {agoLabel(diffDays(props.today, s.last.done_on))}{who ? ` by ${who}` : ''}</>
-              : intervalLabel(s.chore.interval_days)}
+              : scheduleSummary(scheduleOf(s.chore))}
             {s.last?.note && <span className="chore-note"> · “{s.last.note}”</span>}
           </div>
         </div>

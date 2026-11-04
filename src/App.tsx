@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHousehold } from './useHousehold';
 import * as api from './lib/api';
 import { todayStr } from './lib/dates';
-import { choreStates, type ChoreState } from './lib/status';
+import { choreStates, finishedChoreIds, type ChoreState } from './lib/status';
 import { errorMessage, getItem, removeItem, setItem, uuid } from './lib/storage';
 import type { Chore, Completion, Member } from './lib/types';
 import { Icon, memberColors, nextDefaultColor, Toast, type ToastData } from './components/ui';
-import { ChoreSheet, EntrySheet, MemberSheet } from './components/sheets';
+import { EntrySheet, MemberSheet } from './components/sheets';
+import { ChoreSheet } from './components/ChoreSheet';
 import { PickMember, Welcome } from './screens/Onboarding';
 import { ChoresTab } from './screens/ChoresTab';
 import { CalendarTab } from './screens/CalendarTab';
@@ -56,6 +57,7 @@ export default function App() {
   const today = useToday();
 
   const states = useMemo(() => choreStates(chores, completions, today), [chores, completions, today]);
+  const finishedIds = useMemo(() => finishedChoreIds(chores, completions, today), [chores, completions, today]);
   const notify = useCallback((text: string, error = false) => setToast({ text, error }), []);
   const dismissToast = useCallback(() => setToast(null), []);
   const closeSheet = useCallback(() => setSheet(null), []);
@@ -186,7 +188,7 @@ export default function App() {
             onLog={(date) => setSheet({ kind: 'entry', entry: null, date })} />
         )}
         {tab === 'settings' && (
-          <SettingsTab household={household} members={members} chores={chores} me={me}
+          <SettingsTab household={household} members={members} chores={chores} me={me} finishedIds={finishedIds}
             onSwitchPerson={() => setMemberId(null)}
             onEditChore={(chore) => setSheet({ kind: 'chore', chore })}
             onEditMember={(member) => setSheet({ kind: 'member', member })}

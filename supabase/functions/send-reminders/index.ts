@@ -6,6 +6,7 @@
 
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { dueInfo, type Schedule } from '../_shared/schedule.ts';
 
 interface Sub {
   endpoint: string;
@@ -16,12 +17,6 @@ interface Sub {
   timezone: string;
   last_sent_on: string | null;
 }
-
-const DAY_MS = 86_400_000;
-const dayNum = (s: string) => {
-  const [y, m, d] = s.split('-').map(Number);
-  return Math.round(Date.UTC(y, m - 1, d) / DAY_MS);
-};
 
 function localNow(timeZone: string, now: Date) {
   let tz = timeZone;
@@ -58,20 +53,26 @@ Deno.serve(async (req) => {
   if (error) return json({ error: error.message }, 500);
 
   // Chores + last-done dates, loaded once per apartment.
-  const choreCache = new Map<string, Promise<{ name: string; interval: number; last: string | null }[]>>();
+  type ChoreRow = { name: string; schedule: Schedule; last: string | null; times: number };
+  const choreCache = new Map<string, Promise<ChoreRow[]>>();
   const loadChores = (householdId: string) => {
     if (!choreCache.has(householdId)) {
       choreCache.set(householdId, (async () => {
         const { data: chores, error: e1 } = await db
-          .from('chores').select('id,name,interval_days').eq('household_id', householdId).eq('archived', false);
+          .from('chores').select('id,name,interval_days,schedule').eq('household_id', householdId).eq('archived', false);
         if (e1) throw e1;
         const ids = (chores ?? []).map((c) => c.id);
         const { data: last, error: e2 } = ids.length
-          ? await db.from('chore_last_done').select('chore_id,last_done').in('chore_id', ids)
+          ? await db.from('chore_last_done').select('chore_id,last_done,times_done').in('chore_id', ids)
           : { data: [], error: null };
         if (e2) throw e2;
-        const lastMap = new Map((last ?? []).map((r) => [r.chore_id as string, r.last_done as string]));
-        return (chores ?? []).map((c) => ({ name: c.name, interval: c.interval_days, last: lastMap.get(c.id) ?? null }));
+        const lastMap = new Map((last ?? []).map((r) => [r.chore_id as string, r]));
+        return (chores ?? []).map((c) => ({
+          name: c.name,
+          schedule: (c.schedule as Schedule | null) ?? { kind: 'after', days: c.interval_days },
+          last: (lastMap.get(c.id)?.last_done as string | undefined) ?? null,
+          times: Number(lastMap.get(c.id)?.times_done ?? 0),
+        }));
       })());
     }
     return choreCache.get(householdId)!;
@@ -90,9 +91,11 @@ Deno.serve(async (req) => {
     let due: string[];
     try {
       const chores = await loadChores(sub.household_id);
-      const today = dayNum(local.date);
       due = chores
-        .filter((c) => c.last === null || dayNum(c.last) + c.interval <= today)
+        .filter((c) => {
+          const info = dueInfo(c.schedule, c.last, c.times, local.date);
+          return !info.finished && (info.due === null || info.due <= local.date);
+        })
         .map((c) => c.name);
     } catch (e) {
       console.error('load failed', e);

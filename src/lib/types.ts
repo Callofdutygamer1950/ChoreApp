@@ -1,3 +1,5 @@
+import type { Schedule } from '../../supabase/functions/_shared/schedule';
+
 export interface Household {
   id: string;
   name: string;
@@ -19,6 +21,8 @@ export interface Chore {
   household_id: string;
   name: string;
   interval_days: number;
+  /** Repeat rule; null on chores saved before schedules existed (see scheduleOf). */
+  schedule: Schedule | null;
   archived: boolean;
   created_at: string;
 }

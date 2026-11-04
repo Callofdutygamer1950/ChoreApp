@@ -310,3 +310,27 @@ h1, h2, h3 { margin: 0; }
 .toast button { border: 0; background: none; color: #7fe0ae; font-weight: 700; padding: 6px 10px; border-radius: 8px; white-space: nowrap; }
 .toast-error { background: #6e1d1b; }
 .toast-error button { color: #fff; }
+.row-detail { text-align: right; font-size: 14px; }
+
+/* ---------- Chore repeat editor ---------- */
+.field-label { font-size: 14px; font-weight: 600; }
+.custom-repeat {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.custom-repeat input, .custom-repeat select { background: var(--card) !important; }
+.weekday-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--card);
+  font-size: 14px; font-weight: 700; color: var(--muted); padding: 0;
+}
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ends { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ends legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 6px; }
+.form .radio { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; font-size: 16px; min-height: 44px; }
+.form .radio input[type=radio] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
+.form .radio > span:first-of-type { min-width: 48px; }
+.form .radio input[type=date] { flex: 1; min-width: 0; }
+.form .radio input:disabled { opacity: 0.45; }
+.form .radio .count-input { width: 80px; flex: none; }
+.summary { margin: 0; font-size: 14px; color: var(--muted); }

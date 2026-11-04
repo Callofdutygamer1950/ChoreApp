@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Chore, Completion, Household, Member } from './types';
+import { approxIntervalDays, type Schedule } from './schedule';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -61,8 +62,15 @@ export async function updateMember(id: string, patch: Partial<Pick<Member, 'name
   check(await supabase.from('members').update(patch).eq('id', id));
 }
 
-export async function addChore(householdId: string, name: string, intervalDays: number) {
-  check(await supabase.from('chores').insert({ household_id: householdId, name, interval_days: intervalDays }));
+export async function addChore(householdId: string, name: string, schedule: Schedule) {
+  check(await supabase.from('chores').insert({
+    household_id: householdId, name, schedule, interval_days: approxIntervalDays(schedule),
+  }));
+}
+export async function saveChore(id: string, name: string, schedule: Schedule) {
+  check(await supabase.from('chores')
+    .update({ name, schedule, interval_days: approxIntervalDays(schedule) })
+    .eq('id', id));
 }
 export async function updateChore(id: string, patch: Partial<Pick<Chore, 'name' | 'interval_days' | 'archived'>>) {
   check(await supabase.from('chores').update(patch).eq('id', id));
