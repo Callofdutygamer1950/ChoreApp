@@ -1,5 +1,5 @@
 // Checks the chore schedule rules. Run: npm run test:schedule
-import { dueInfo, scheduleSummary, type Schedule } from '../supabase/functions/_shared/schedule.ts';
+import { dueInfo, nearestOccurrence, occurrencesBetween, scheduleSummary, type Schedule } from '../supabase/functions/_shared/schedule.ts';
 
 let failed = 0;
 function check(label: string, actual: unknown, expected: unknown) {
@@ -62,6 +62,11 @@ check('summary count', scheduleSummary(endsCount), 'Weekly on Friday, 3 times');
 check('summary after', scheduleSummary(after), '3 days after last done');
 check('summary after 1 wk', scheduleSummary({ kind: 'after', days: 7 }), '1 week after last done');
 check('summary weekdays', scheduleSummary(weekdays), 'Every weekday');
+
+check('occurrences in Jan (Fridays)', occurrencesBetween(fridays, '2026-12-25', '2027-01-31'), ['2027-01-01', '2027-01-08', '2027-01-15', '2027-01-22', '2027-01-29']);
+check('nearest to Thu is Fri', nearestOccurrence(fridays, '2027-01-07'), '2027-01-08');
+check('nearest to Sat is Fri before', nearestOccurrence(fridays, '2027-01-09'), '2027-01-08');
+check('nearest before start is null', nearestOccurrence(fridays, '2026-12-01'), null);
 
 console.log(failed ? `\n${failed} FAILED` : '\nAll passed');
 process.exit(failed ? 1 : 0);

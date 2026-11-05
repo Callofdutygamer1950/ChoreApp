@@ -190,7 +190,8 @@ export default function App() {
             onAddChore={() => setSheet({ kind: 'chore', chore: null })} />
         )}
         {tab === 'calendar' && (
-          <CalendarTab completions={completions} chores={chores} members={members} today={today}
+          <CalendarTab completions={completions} chores={chores} states={states} members={members} rooms={rooms}
+            meId={me.id} today={today} onOpenChore={(choreId) => setSheet({ kind: 'detail', choreId })}
             onEdit={(entry) => setSheet({ kind: 'entry', entry })}
             onLog={(date) => setSheet({ kind: 'entry', entry: null, date })} />
         )}

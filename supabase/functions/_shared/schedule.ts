@@ -257,3 +257,26 @@ export function nextDueAfterSkip(s: Schedule, currentDue: string | null, today: 
   const next = nextOccurrence(s, base + 1);
   return next === null ? null : toStr(next);
 }
+
+// ---------- Calendar helpers ----------
+
+/** Scheduled days of a calendar schedule between from and to (inclusive). Empty for other kinds. */
+export function occurrencesBetween(s: Schedule, from: string, to: string): string[] {
+  if (s.kind !== 'repeat') return [];
+  const out: string[] = [];
+  const end = toNum(to);
+  for (let d = Math.max(toNum(from), toNum(s.start)); d <= end; d++) {
+    if (isOccurrence(s, d)) out.push(toStr(d));
+  }
+  return out;
+}
+
+/** The scheduled day a completion on `day` counts toward (nearest one; a tie counts as early). */
+export function nearestOccurrence(s: Schedule, day: string): string | null {
+  if (s.kind !== 'repeat' || day < s.start) return null;
+  const l = toNum(day);
+  const before = prevOccurrence(s, l);
+  const after = nextOccurrence(s, l);
+  const pick = before === null ? after : after === null ? before : l - before < after - l ? before : after;
+  return pick === null ? null : toStr(pick);
+}

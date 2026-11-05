@@ -325,14 +325,8 @@ h1, h2, h3 { margin: 0; }
   font-size: 14px; font-weight: 700; color: var(--muted); padding: 0;
 }
 .chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.ends { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ends legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 6px; }
-.form .radio { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; font-size: 16px; min-height: 44px; }
-.form .radio input[type=radio] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); flex: none; }
-.form .radio > span:first-of-type { min-width: 48px; }
-.form .radio input[type=date] { flex: 1; min-width: 0; }
-.form .radio input:disabled { opacity: 0.45; }
-.form .radio .count-input { width: 80px; flex: none; }
+.ends { display: flex; flex-direction: column; gap: 14px; }
+.form .row .unit { align-self: center; color: var(--muted); font-weight: 400; flex: 1; }
 .summary { margin: 0; font-size: 14px; color: var(--muted); }
 
 /* ---------- Chore rows: tappable, room tag, whose turn ---------- */
@@ -458,3 +452,19 @@ button.chore-main { border: 0; background: none; padding: 0; text-align: left; c
 .ingredient-list li + li { border-top: 1px solid var(--line); }
 .ingredient-list input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; }
 .recipe-steps { white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* ---------- Calendar: due / missed / logged ---------- */
+.cal-dots i.ring, .legend i.ring, .entry i.ring {
+  background: none !important; border: 2px solid var(--soon); box-sizing: border-box;
+}
+.cal-dots i.ring.missed, .legend i.ring.missed, .entry i.ring.missed { border-color: var(--overdue); }
+.entry i.ring { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+.plan-label { font-weight: 700; }
+.plan-label.due { color: var(--soon); }
+.plan-label.overdue, .plan-label.missed { color: var(--overdue); }
+.logged-label {
+  margin: 14px 4px 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.entry-list.logged .entry { opacity: 0.6; box-shadow: none; background: color-mix(in srgb, var(--card) 70%, var(--bg)); }
+.entry-list.logged .entry-chore { color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }

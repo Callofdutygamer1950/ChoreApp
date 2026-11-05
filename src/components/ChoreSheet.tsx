@@ -305,26 +305,33 @@ export function ChoreSheet(props: {
         )}
 
         {form.mode !== 'once' && (
-          <fieldset className="ends">
-            <legend>Ends</legend>
-            <label className="radio">
-              <input type="radio" name="ends" checked={form.endsType === 'never'} onChange={() => update({ endsType: 'never' })} />
-              <span>Never</span>
+          <div className="ends">
+            <label>
+              Ends
+              <select value={form.endsType} onChange={(e) => update({ endsType: e.target.value as Ends['type'] })}>
+                <option value="never">Never</option>
+                <option value="on">On a date</option>
+                <option value="count">After a number of times</option>
+              </select>
             </label>
-            <label className="radio">
-              <input type="radio" name="ends" checked={form.endsType === 'on'} onChange={() => update({ endsType: 'on' })} />
-              <span>On</span>
-              <input type="date" value={form.endsDate} min={form.mode === 'repeat' ? form.start : undefined}
-                disabled={form.endsType !== 'on'} onChange={(e) => update({ endsDate: e.target.value })} />
-            </label>
-            <label className="radio">
-              <input type="radio" name="ends" checked={form.endsType === 'count'} onChange={() => update({ endsType: 'count' })} />
-              <span>After</span>
-              <input type="number" inputMode="numeric" min={1} max={999} value={form.endsCount} className="count-input"
-                disabled={form.endsType !== 'count'} onChange={(e) => update({ endsCount: e.target.value })} />
-              <span className="muted">times done</span>
-            </label>
-          </fieldset>
+            {form.endsType === 'on' && (
+              <label>
+                Last day
+                <input type="date" value={form.endsDate} min={form.mode === 'repeat' ? form.start : undefined}
+                  onChange={(e) => update({ endsDate: e.target.value })} />
+              </label>
+            )}
+            {form.endsType === 'count' && (
+              <label>
+                Stop after it's done
+                <div className="row">
+                  <input type="number" inputMode="numeric" min={1} max={999} value={form.endsCount}
+                    onChange={(e) => update({ endsCount: e.target.value })} />
+                  <span className="unit">{form.endsCount === '1' ? 'time' : 'times'}</span>
+                </div>
+              </label>
+            )}
+          </div>
         )}
 
         <fieldset className="rotation">

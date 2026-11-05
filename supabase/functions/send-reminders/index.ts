@@ -6,7 +6,7 @@
 
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { dueInfo, type Schedule } from '../_shared/schedule.ts';
+import { applySnooze, dueInfo, type Schedule, type Snooze } from '../_shared/schedule.ts';
 
 interface Sub {
   endpoint: string;
@@ -53,17 +53,21 @@ Deno.serve(async (req) => {
   if (error) return json({ error: error.message }, 500);
 
   // Chores + last-done dates, loaded once per apartment.
-  type ChoreRow = { name: string; schedule: Schedule; last: string | null; times: number };
+  type ChoreRow = {
+    name: string; schedule: Schedule; last: string | null; times: number;
+    lastRecorded: string | null; snooze: Snooze;
+  };
   const choreCache = new Map<string, Promise<ChoreRow[]>>();
   const loadChores = (householdId: string) => {
     if (!choreCache.has(householdId)) {
       choreCache.set(householdId, (async () => {
         const { data: chores, error: e1 } = await db
-          .from('chores').select('id,name,interval_days,schedule').eq('household_id', householdId).eq('archived', false);
+          .from('chores').select('id,name,interval_days,schedule,snoozed_until,snoozed_at')
+          .eq('household_id', householdId).eq('archived', false);
         if (e1) throw e1;
         const ids = (chores ?? []).map((c) => c.id);
         const { data: last, error: e2 } = ids.length
-          ? await db.from('chore_last_done').select('chore_id,last_done,times_done').in('chore_id', ids)
+          ? await db.from('chore_last_done').select('chore_id,last_done,times_done,last_created_at').in('chore_id', ids)
           : { data: [], error: null };
         if (e2) throw e2;
         const lastMap = new Map((last ?? []).map((r) => [r.chore_id as string, r]));
@@ -72,6 +76,8 @@ Deno.serve(async (req) => {
           schedule: (c.schedule as Schedule | null) ?? { kind: 'after', days: c.interval_days },
           last: (lastMap.get(c.id)?.last_done as string | undefined) ?? null,
           times: Number(lastMap.get(c.id)?.times_done ?? 0),
+          lastRecorded: (lastMap.get(c.id)?.last_created_at as string | undefined) ?? null,
+          snooze: { until: c.snoozed_until ?? null, at: c.snoozed_at ?? null },
         }));
       })());
     }
@@ -93,7 +99,7 @@ Deno.serve(async (req) => {
       const chores = await loadChores(sub.household_id);
       due = chores
         .filter((c) => {
-          const info = dueInfo(c.schedule, c.last, c.times, local.date);
+          const info = applySnooze(dueInfo(c.schedule, c.last, c.times, local.date), c.snooze, c.lastRecorded);
           return !info.finished && (info.due === null || info.due <= local.date);
         })
         .map((c) => c.name);
