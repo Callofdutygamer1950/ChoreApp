@@ -163,6 +163,9 @@ Deno.serve(async (req) => {
         Accept: 'text/html,application/xhtml+xml',
       },
     });
+    if (res.status === 401 || res.status === 403 || res.status === 429) {
+      return json({ error: "This site blocks automatic imports. You can add the recipe by hand with New recipe." }, 422);
+    }
     if (!res.ok) return json({ error: `The site answered with an error (${res.status}).` }, 422);
     if (res.url && !isAllowedUrl(res.url)) return json({ error: 'That page redirected somewhere not allowed.' }, 422);
     const reader = res.body?.getReader();

@@ -34,15 +34,16 @@ Installing and notifications only work once the app is hosted on https (see belo
 
 1. ✅ Run `supabase/schema.sql` in the Supabase SQL Editor, then each file in `supabase/migrations/` in order.
 2. ✅ Turn on **Authentication → Sign In / Providers → Allow anonymous sign-ins**.
-3. **Deploy the reminder function** (one time). This needs the Supabase CLI login, which opens your browser:
+3. ✅ **Deploy the functions** (done; repeat after changing them). This needs the Supabase CLI login, which opens your browser:
 
    ```bash
    npx supabase login
-   npx supabase functions deploy send-reminders --project-ref bhvpkternndtyvvuwqda --no-verify-jwt
-   npx supabase secrets set --env-file .env.secrets --project-ref bhvpkternndtyvvuwqda
+   npx supabase functions deploy send-reminders --remote=bhvpkternndtyvvuwqda --no-verify-jwt --use-api
+   npx supabase functions deploy import-recipe --remote=bhvpkternndtyvvuwqda --no-verify-jwt --use-api
+   npx supabase secrets set --env-file .env.secrets --remote=bhvpkternndtyvvuwqda
    ```
 
-   Then paste `supabase/reminders.secret.sql` into the SQL Editor and click **Run**. This schedules the
+   ✅ Then paste `supabase/reminders.secret.sql` into the SQL Editor and click **Run**. This schedules the
    hourly check.
 4. **Hosting:** the app is published at https://callofdutygamer1950.github.io/ChoreApp/ by
    `.github/workflows/deploy.yml` on every push to `main` (repo Settings → Pages → Source: GitHub Actions).
@@ -79,3 +80,7 @@ delete from public.households where join_code = 'ABC123';
 ```
 
 Any phone that was in it will show the join screen again.
+
+## Recipe import
+
+Works with most recipe sites (it reads the recipe data they publish for Google). Some big publishers, like Allrecipes, Simply Recipes and Serious Eats, block automated requests, and the app says so.
