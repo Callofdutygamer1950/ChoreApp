@@ -280,3 +280,8 @@ export function nearestOccurrence(s: Schedule, day: string): string | null {
   const pick = before === null ? after : after === null ? before : l - before < after - l ? before : after;
   return pick === null ? null : toStr(pick);
 }
+
+// ---------- Away mode ----------
+
+/** Someone is away until (not including) their back-on day. */
+export const isAway = (awayUntil: string | null | undefined, today: string) => !!awayUntil && today < awayUntil;

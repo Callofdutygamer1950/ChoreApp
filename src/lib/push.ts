@@ -32,7 +32,7 @@ function keyToBytes(base64url: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-async function save(sub: PushSubscription, hour: number) {
+async function save(sub: PushSubscription, hour: number, memberId: string) {
   const keys = sub.toJSON().keys ?? {};
   const { error } = await supabase.rpc('save_push_subscription', {
     p_endpoint: sub.endpoint,
@@ -40,27 +40,32 @@ async function save(sub: PushSubscription, hour: number) {
     p_auth: keys.auth ?? '',
     p_hour: hour,
     p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    p_member: memberId,
   });
   if (error) throw new Error(error.message);
 }
 
 /** Current reminder hour for this phone, or null if reminders are off. */
-export async function currentReminder(): Promise<number | null> {
+export async function currentReminder(memberId: string): Promise<number | null> {
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
   if (!sub || Notification.permission !== 'granted') return null;
   const { data } = await supabase
     .from('push_subscriptions')
-    .select('reminder_hour')
+    .select('reminder_hour,member_id')
     .eq('endpoint', sub.endpoint)
     .maybeSingle();
-  if (data) return data.reminder_hour as number;
+  if (data) {
+    // Keep the server in step if this phone switched to a different person.
+    if (data.member_id !== memberId) await save(sub, data.reminder_hour as number, memberId);
+    return data.reminder_hour as number;
+  }
   // The phone is subscribed but the server lost track (e.g. rejoined): re-register at 6 PM.
-  await save(sub, 18);
+  await save(sub, 18, memberId);
   return 18;
 }
 
-export async function enableReminders(hour: number) {
+export async function enableReminders(hour: number, memberId: string) {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     throw new Error('Notifications are blocked. Allow them for this app in your phone settings, then try again.');
@@ -68,13 +73,13 @@ export async function enableReminders(hour: number) {
   const reg = await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription()) ??
     (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(VAPID_PUBLIC_KEY!) }));
-  await save(sub, hour);
+  await save(sub, hour, memberId);
 }
 
-export async function setReminderHour(hour: number) {
+export async function setReminderHour(hour: number, memberId: string) {
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
-  if (sub) await save(sub, hour);
+  if (sub) await save(sub, hour, memberId);
 }
 
 export async function disableReminders() {

@@ -6,7 +6,7 @@
 
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { applySnooze, dueInfo, type Schedule, type Snooze } from '../_shared/schedule.ts';
+import { applySnooze, dueInfo, isAway, type Schedule, type Snooze } from '../_shared/schedule.ts';
 
 interface Sub {
   endpoint: string;
@@ -16,6 +16,7 @@ interface Sub {
   reminder_hour: number;
   timezone: string;
   last_sent_on: string | null;
+  member_id: string | null;
 }
 
 function localNow(timeZone: string, now: Date) {
@@ -84,12 +85,20 @@ Deno.serve(async (req) => {
     return choreCache.get(householdId)!;
   };
 
+  // Who is away (no reminders until they're back).
+  const { data: members } = await db.from('members').select('id,away_until');
+  const awayUntil = new Map((members ?? []).map((m) => [m.id as string, m.away_until as string | null]));
+
   const now = new Date();
   const result = { sent: 0, skipped: 0, removed: 0, failed: 0 };
 
   for (const sub of (subs ?? []) as Sub[]) {
     const local = localNow(sub.timezone, now);
     if (!force && (local.hour !== sub.reminder_hour || sub.last_sent_on === local.date)) {
+      result.skipped++;
+      continue;
+    }
+    if (!force && sub.member_id && isAway(awayUntil.get(sub.member_id), local.date)) {
       result.skipped++;
       continue;
     }

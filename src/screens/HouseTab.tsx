@@ -1,50 +1,74 @@
 import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import * as api from '../lib/api';
 import { errorMessage, getItem, setItem, uuid } from '../lib/storage';
-import type { Member, Recipe, ShoppingItem } from '../lib/types';
+import type { Chore, Completion, InfoCard, Member, Recipe, ShoppingItem } from '../lib/types';
 import { Icon } from '../components/ui';
 import { RecipeEditSheet, RecipeImportSheet, RecipeViewSheet } from '../components/RecipeSheets';
+import { InfoBoard } from '../components/InfoBoard';
+import { MonthlySummary } from '../components/MonthlySummary';
 
-type View = 'shopping' | 'recipes';
+type View = 'info' | 'shopping' | 'recipes' | 'summary';
 type RecipeSheet =
   | { kind: 'view'; id: string }
   | { kind: 'edit'; recipe: Recipe | null; draft?: api.RecipeFields }
   | { kind: 'import' };
 
-const VIEW_KEY = 'chores.kitchenView';
+const VIEW_KEY = 'chores.houseView';
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'info', label: 'Info' }, { id: 'shopping', label: 'Shopping' },
+  { id: 'recipes', label: 'Recipes' }, { id: 'summary', label: 'Summary' },
+];
 
-export function KitchenTab(props: {
+interface HouseProps {
   householdId: string;
   shopping: ShoppingItem[];
   setShopping: Dispatch<SetStateAction<ShoppingItem[]>>;
   recipes: Recipe[];
+  info: InfoCard[];
   members: Member[];
+  chores: Chore[];
+  completions: Completion[];
+  colors: Map<string, string>;
+  today: string;
   meId: string;
   reload: () => void;
   notify: (text: string, error?: boolean) => void;
-}) {
-  const [view, setViewState] = useState<View>(() => (getItem(VIEW_KEY) === 'recipes' ? 'recipes' : 'shopping'));
+}
+
+/** House tab: info board, shopping list, recipes, and the monthly summary. */
+export function HouseTab(props: HouseProps) {
+  const [view, setViewState] = useState<View>(() => {
+    const saved = getItem(VIEW_KEY);
+    return VIEWS.some((v) => v.id === saved) ? (saved as View) : 'info';
+  });
   const setView = (v: View) => {
     setViewState(v);
     setItem(VIEW_KEY, v);
   };
+  const toBuy = props.shopping.filter((i) => !i.done).length;
 
   return (
     <div className="kitchen">
       <div className="segmented" role="tablist">
-        <button role="tab" aria-selected={view === 'shopping'} className={view === 'shopping' ? 'on' : ''}
-          onClick={() => setView('shopping')}>
-          Shopping{props.shopping.some((i) => !i.done) && <span className="seg-count">{props.shopping.filter((i) => !i.done).length}</span>}
-        </button>
-        <button role="tab" aria-selected={view === 'recipes'} className={view === 'recipes' ? 'on' : ''}
-          onClick={() => setView('recipes')}>Recipes</button>
+        {VIEWS.map((v) => (
+          <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'on' : ''}
+            onClick={() => setView(v.id)}>
+            {v.label}{v.id === 'shopping' && toBuy > 0 && <span className="seg-count">{toBuy}</span>}
+          </button>
+        ))}
       </div>
-      {view === 'shopping' ? <Shopping {...props} /> : <Recipes {...props} onAddedToList={() => setView('shopping')} />}
+      {view === 'info' && <InfoBoard householdId={props.householdId} cards={props.info} reload={props.reload} notify={props.notify} />}
+      {view === 'shopping' && <Shopping {...props} />}
+      {view === 'recipes' && <Recipes {...props} onAddedToList={() => setView('shopping')} />}
+      {view === 'summary' && (
+        <MonthlySummary completions={props.completions} chores={props.chores} members={props.members}
+          colors={props.colors} today={props.today} />
+      )}
     </div>
   );
 }
 
-function Shopping(props: Parameters<typeof KitchenTab>[0]) {
+function Shopping(props: HouseProps) {
   const [text, setText] = useState('');
   const names = new Map(props.members.map((m) => [m.id, m.name]));
   const toBuy = props.shopping.filter((i) => !i.done);
@@ -126,7 +150,7 @@ function Shopping(props: Parameters<typeof KitchenTab>[0]) {
   );
 }
 
-function Recipes(props: Parameters<typeof KitchenTab>[0] & { onAddedToList: () => void }) {
+function Recipes(props: HouseProps & { onAddedToList: () => void }) {
   const [sheet, setSheet] = useState<RecipeSheet | null>(null);
   const [query, setQuery] = useState('');
   const list = useMemo(() => {

@@ -9,13 +9,13 @@ import { Icon, memberColors, nextDefaultColor, Toast, type ToastData } from './c
 import { EntrySheet, MemberSheet } from './components/sheets';
 import { ChoreSheet } from './components/ChoreSheet';
 import { ChoreDetailSheet } from './components/ChoreDetailSheet';
-import { KitchenTab } from './screens/KitchenTab';
+import { HouseTab } from './screens/HouseTab';
 import { PickMember, Welcome } from './screens/Onboarding';
 import { ChoresTab } from './screens/ChoresTab';
 import { CalendarTab } from './screens/CalendarTab';
 import { SettingsTab } from './screens/SettingsTab';
 
-type Tab = 'chores' | 'calendar' | 'kitchen' | 'settings';
+type Tab = 'chores' | 'calendar' | 'house' | 'settings';
 type Sheet =
   | { kind: 'entry'; entry: Completion | null; date?: string }
   | { kind: 'chore'; chore: Chore | null }
@@ -48,8 +48,8 @@ function useToday() {
 
 const COOLDOWN_MS = 2 * 60_000;
 
-const TAB_TITLES: Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', kitchen: 'Kitchen', settings: 'Settings' };
-const TAB_ICONS: Record<Tab, string> = { chores: 'list', calendar: 'calendar', kitchen: 'cart', settings: 'settings' };
+const TAB_TITLES: Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', house: 'House', settings: 'Settings' };
+const TAB_ICONS: Record<Tab, string> = { chores: 'list', calendar: 'calendar', house: 'home', settings: 'settings' };
 
 export default function App() {
   const hh = useHousehold();
@@ -195,9 +195,10 @@ export default function App() {
             onEdit={(entry) => setSheet({ kind: 'entry', entry })}
             onLog={(date) => setSheet({ kind: 'entry', entry: null, date })} />
         )}
-        {tab === 'kitchen' && (
-          <KitchenTab householdId={household.id} shopping={hh.shopping} setShopping={hh.setShopping}
-            recipes={hh.recipes} members={members} meId={me.id} reload={hh.reload} notify={notify} />
+        {tab === 'house' && (
+          <HouseTab householdId={household.id} shopping={hh.shopping} setShopping={hh.setShopping}
+            recipes={hh.recipes} info={hh.info} members={members} chores={chores} completions={completions}
+            colors={colors} today={today} meId={me.id} reload={hh.reload} notify={notify} />
         )}
         {tab === 'settings' && (
           <SettingsTab household={household} members={members} chores={chores} me={me} finishedIds={finishedIds}
@@ -210,7 +211,7 @@ export default function App() {
       </main>
 
       <nav className="tabbar">
-        {(['chores', 'calendar', 'kitchen', 'settings'] as Tab[]).map((t) => (
+        {(['chores', 'calendar', 'house', 'settings'] as Tab[]).map((t) => (
           <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}
             aria-current={tab === t ? 'page' : undefined}>
             <Icon name={TAB_ICONS[t]} />

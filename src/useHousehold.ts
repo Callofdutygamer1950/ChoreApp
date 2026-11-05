@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ensureSession, supabase } from './lib/supabase';
 import { fetchData, fetchHousehold } from './lib/api';
 import { errorMessage } from './lib/storage';
-import type { Chore, Completion, Household, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './lib/types';
+import type { Chore, Completion, Household, InfoCard, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './lib/types';
 
 export type Phase = 'loading' | 'error' | 'no-household' | 'ready';
 
@@ -18,6 +18,7 @@ export function useHousehold() {
   const [adjustments, setAdjustments] = useState<TurnAdjustment[]>([]);
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [info, setInfo] = useState<InfoCard[]>([]);
   const householdId = household?.id;
   const loadSeq = useRef(0);
 
@@ -32,6 +33,7 @@ export function useHousehold() {
     setAdjustments(data.adjustments);
     setShopping(data.shopping);
     setRecipes(data.recipes);
+    setInfo(data.info);
   }, []);
 
   /** Re-checks which apartment this phone is in, then loads everything. */
@@ -102,6 +104,8 @@ export function useHousehold() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_items' }, schedule)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'recipes' }, schedule)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'rooms' }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'house_info', filter }, schedule)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'house_info' }, schedule)
       // Deletes can't be filtered by apartment, so listen to all of them.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'completions' }, schedule)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'households', filter: `id=eq.${householdId}` }, schedule)
@@ -125,7 +129,7 @@ export function useHousehold() {
   }, [householdId, reload]);
 
   return {
-    phase, error, household, members, chores, completions, rooms, adjustments, shopping, recipes,
+    phase, error, household, members, chores, completions, rooms, adjustments, shopping, recipes, info,
     setCompletions, setShopping, reload, refreshHousehold,
   };
 }

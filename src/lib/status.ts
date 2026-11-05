@@ -1,6 +1,6 @@
 import type { Chore, Completion, Member, TurnAdjustment } from './types';
 import { diffDays, plural } from './dates';
-import { applySnooze, dueInfo, scheduleOf } from './schedule';
+import { applySnooze, dueInfo, isAway, scheduleOf } from './schedule';
 
 export interface ChoreState {
   chore: Chore;
@@ -65,9 +65,12 @@ export function turnCounts(chore: Chore, completions: Completion[], adjustments:
  */
 export function whoseTurn(
   chore: Chore, completions: Completion[], adjustments: TurnAdjustment[], activeIds: Set<string>,
-  last: Completion | null,
+  last: Completion | null, awayIds: Set<string> = new Set(),
 ): string | null {
-  const rotation = (chore.rotation ?? []).filter((id) => activeIds.has(id));
+  // People who are away are skipped, unless everyone in the rotation is away.
+  const inRotation = (chore.rotation ?? []).filter((id) => activeIds.has(id));
+  const present = inRotation.filter((id) => !awayIds.has(id));
+  const rotation = present.length ? present : inRotation;
   if (rotation.length === 0) return null;
   if (rotation.length === 1) return rotation[0];
 
@@ -103,6 +106,7 @@ function buildMaps(ctx: Context) {
     recorded: lastRecordedByChore(ctx.completions),
     counts: countByChore(ctx.completions),
     active: new Set(ctx.members.filter((m) => !m.archived).map((m) => m.id)),
+    away: new Set(ctx.members.filter((m) => isAway(m.away_until, ctx.today)).map((m) => m.id)),
   };
 }
 
@@ -120,7 +124,7 @@ export function choreStates(chores: Chore[], ctx: Context): ChoreState[] {
     out.push({
       chore, last, due: info.due, snoozed: info.snoozed,
       dueIn: info.due ? diffDays(info.due, ctx.today) : null,
-      turn: whoseTurn(chore, ctx.completions, ctx.adjustments, maps.active, last),
+      turn: whoseTurn(chore, ctx.completions, ctx.adjustments, maps.active, last, maps.away),
     });
   }
   return out.sort((a, b) => {

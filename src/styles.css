@@ -468,3 +468,32 @@ button.chore-main { border: 0; background: none; padding: 0; text-align: left; c
 }
 .entry-list.logged .entry { opacity: 0.6; box-shadow: none; background: color-mix(in srgb, var(--card) 70%, var(--bg)); }
 .entry-list.logged .entry-chore { color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- Away mode ---------- */
+.away-text { color: var(--today); font-weight: 600; }
+.away-form { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.away-form label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
+.away-form input { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px; font-size: 16px; }
+.away-form .hint { margin: 0; font-size: 13px; color: var(--muted); }
+.turn-pill.away { color: var(--today); }
+
+/* ---------- House tab: 4-way switch, info board, summary ---------- */
+.segmented button { padding: 8px 4px; font-size: 14px; }
+.info-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.info-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px 14px 16px; }
+.info-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.info-head h3 { font-size: 16px; }
+.info-tools, .info-move { display: flex; gap: 6px; flex: none; }
+.info-body { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.info-body a { color: var(--accent); font-weight: 600; }
+.summary-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.summary-total { color: var(--muted); }
+.summary-total strong { color: var(--text); font-size: 22px; margin-right: 2px; }
+.summary-row { display: grid; grid-template-columns: minmax(70px, 30%) 1fr 32px; align-items: center; gap: 10px; }
+.summary-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary-bar { height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.summary-bar i { display: block; height: 100%; border-radius: 999px; min-width: 2px; }
+.summary-count { text-align: right; font-weight: 700; }
+.by-chore-people { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.by-chore-chip { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: 14px; }
+.icon-btn:disabled { opacity: 0.3; }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../lib/api';
-import { hourLabel } from '../lib/dates';
-import { scheduleOf, scheduleSummary } from '../lib/schedule';
+import { addDays, formatDay, hourLabel, todayStr } from '../lib/dates';
+import { isAway, scheduleOf, scheduleSummary } from '../lib/schedule';
 import * as push from '../lib/push';
 import { errorMessage } from '../lib/storage';
 import type { Chore, Completion, Household, Member, Room, TurnAdjustment } from '../lib/types';
@@ -117,6 +117,7 @@ export function SettingsTab(props: {
             <span><i className="dot" style={{ background: colors.get(props.me.id) }} /> {props.me.name}</span>
             <button className="btn small" onClick={props.onSwitchPerson}>Switch person</button>
           </div>
+          <AwayRow me={props.me} reload={props.reload} notify={props.notify} />
           <button className="row-item tap add" onClick={() => props.onEditMember(props.me)}>
             <span>Change my name or color</span>
           </button>
@@ -147,7 +148,10 @@ export function SettingsTab(props: {
           {people.map((m) => (
             <button key={m.id} className="row-item tap" onClick={() => props.onEditMember(m)}>
               <span><i className="dot" style={{ background: colors.get(m.id) }} /> {m.name}</span>
-              {m.id === props.me.id && <span className="muted">You</span>}
+              <span className="muted">
+                {[isAway(m.away_until, todayStr()) && awayLabel(m.away_until!), m.id === props.me.id && 'You']
+                  .filter(Boolean).join(' · ')}
+              </span>
             </button>
           ))}
           <button className="row-item tap add" onClick={() => props.onEditMember(null)}>
@@ -173,7 +177,7 @@ export function SettingsTab(props: {
         </div>
       </section>
 
-      <Reminders notify={props.notify} />
+      <Reminders notify={props.notify} memberId={props.me.id} />
 
       <section>
         <h3 className="section-title">Admin</h3>
@@ -211,7 +215,7 @@ export function SettingsTab(props: {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-function Reminders({ notify }: { notify: (text: string, error?: boolean) => void }) {
+function Reminders({ notify, memberId }: { notify: (text: string, error?: boolean) => void; memberId: string }) {
   const support = push.pushSupport();
   const [hour, setHour] = useState<number | null>(null); // null = off
   const [loading, setLoading] = useState(support === 'ok');
@@ -219,17 +223,17 @@ function Reminders({ notify }: { notify: (text: string, error?: boolean) => void
 
   useEffect(() => {
     if (support !== 'ok') return;
-    push.currentReminder()
+    push.currentReminder(memberId)
       .then(setHour)
       .catch(() => setHour(null))
       .finally(() => setLoading(false));
-  }, [support]);
+  }, [support, memberId]);
 
   async function toggle(on: boolean) {
     setBusy(true);
     try {
       if (on) {
-        await push.enableReminders(hour ?? 18);
+        await push.enableReminders(hour ?? 18, memberId);
         setHour(hour ?? 18);
         notify('Reminders on');
       } else {
@@ -248,7 +252,7 @@ function Reminders({ notify }: { notify: (text: string, error?: boolean) => void
     const prev = hour;
     setHour(h);
     try {
-      await push.setReminderHour(h);
+      await push.setReminderHour(h, memberId);
     } catch (e) {
       setHour(prev);
       notify(errorMessage(e), true);
@@ -288,5 +292,61 @@ function Reminders({ notify }: { notify: (text: string, error?: boolean) => void
       <div className="card rows">{body}</div>
       {support === 'ok' && <p className="muted fine">This setting only applies to this phone.</p>}
     </section>
+  );
+}
+
+export const awayLabel = (backOn: string) =>
+  `Away · back ${formatDay(backOn, { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+/** Away mode: skipped in turns and no reminders until the day you're back. */
+function AwayRow(props: { me: Member; reload: () => void; notify: (text: string, error?: boolean) => void }) {
+  const today = todayStr();
+  const away = isAway(props.me.away_until, today);
+  const [open, setOpen] = useState(false);
+  const [backOn, setBackOn] = useState(addDays(today, 7));
+  const [busy, setBusy] = useState(false);
+
+  async function save(value: string | null, message: string) {
+    setBusy(true);
+    try {
+      await api.updateMember(props.me.id, { away_until: value });
+      props.notify(message);
+      setOpen(false);
+      props.reload();
+    } catch (e) {
+      props.notify(errorMessage(e), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (away) {
+    return (
+      <div className="row-item">
+        <span className="away-text">{awayLabel(props.me.away_until!)}</span>
+        <button className="btn small" disabled={busy} onClick={() => save(null, 'Welcome back')}>I'm back</button>
+      </div>
+    );
+  }
+  if (!open) {
+    return (
+      <button className="row-item tap add" onClick={() => setOpen(true)}>
+        <span>I'm going away…</span>
+      </button>
+    );
+  }
+  return (
+    <div className="away-form">
+      <label>
+        I'll be back on
+        <input type="date" value={backOn} min={addDays(today, 1)} onChange={(e) => setBackOn(e.target.value)} />
+      </label>
+      <p className="hint">Until then you're skipped for turns and this phone gets no reminders.</p>
+      <div className="form-actions">
+        <button className="btn small" onClick={() => setOpen(false)}>Cancel</button>
+        <button className="btn small primary" disabled={busy || !backOn || backOn <= today}
+          onClick={() => save(backOn, awayLabel(backOn))}>Go away</button>
+      </div>
+    </div>
   );
 }

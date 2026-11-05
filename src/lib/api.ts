@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Chore, Completion, Household, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './types';
+import type { Chore, Completion, Household, InfoCard, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './types';
 import { approxIntervalDays, type Schedule } from './schedule';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
@@ -34,15 +34,15 @@ async function fetchAllCompletions(householdId: string): Promise<Completion[]> {
 export async function fetchData(householdId: string) {
   const q = (table: string, order = 'created_at') =>
     supabase.from(table).select('*').eq('household_id', householdId).order(order).then(check);
-  const [members, chores, completions, rooms, adjustments, shopping, recipes] = await Promise.all([
+  const [members, chores, completions, rooms, adjustments, shopping, recipes, info] = await Promise.all([
     q('members'), q('chores'), fetchAllCompletions(householdId), q('rooms', 'name'),
     supabase.from('turn_adjustments').select('*').eq('household_id', householdId).then(check),
-    q('shopping_items'), q('recipes', 'title'),
+    q('shopping_items'), q('recipes', 'title'), q('house_info', 'sort'),
   ]);
   return {
     members: members as Member[], chores: chores as Chore[], completions,
     rooms: rooms as Room[], adjustments: adjustments as TurnAdjustment[],
-    shopping: shopping as ShoppingItem[], recipes: recipes as Recipe[],
+    shopping: shopping as ShoppingItem[], recipes: recipes as Recipe[], info: info as InfoCard[],
   };
 }
 
@@ -64,7 +64,7 @@ export async function addMember(householdId: string, name: string, color: string
   if (color) row.color = color;
   return check(await supabase.from('members').insert(row).select().single()) as Member;
 }
-export async function updateMember(id: string, patch: Partial<Pick<Member, 'name' | 'archived' | 'color'>>) {
+export async function updateMember(id: string, patch: Partial<Pick<Member, 'name' | 'archived' | 'color' | 'away_until'>>) {
   check(await supabase.from('members').update(patch).eq('id', id));
 }
 
@@ -171,4 +171,15 @@ export async function importRecipe(url: string): Promise<RecipeFields> {
 /** Adds one item with a client-made id, so it can be checked off before the server replies. */
 export async function addShoppingItem(item: Pick<ShoppingItem, 'id' | 'household_id' | 'name' | 'added_by'>) {
   check(await supabase.from('shopping_items').insert(item));
+}
+
+// ---------- House info board ----------
+export async function addInfoCard(householdId: string, title: string, body: string, sort: number) {
+  check(await supabase.from('house_info').insert({ household_id: householdId, title, body, sort }));
+}
+export async function saveInfoCard(id: string, patch: Partial<Pick<InfoCard, 'title' | 'body' | 'sort'>>) {
+  check(await supabase.from('house_info').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id));
+}
+export async function deleteInfoCard(id: string) {
+  check(await supabase.from('house_info').delete().eq('id', id));
 }

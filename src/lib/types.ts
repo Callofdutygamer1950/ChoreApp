@@ -12,6 +12,8 @@ export interface Member {
   name: string;
   /** Picked color like "#2f80ed", or null to use the default. */
   color: string | null;
+  /** Away until (not including) this day — the day they're back. */
+  away_until: string | null;
   archived: boolean;
   created_at: string;
 }
@@ -79,6 +81,16 @@ export interface Recipe {
   notes: string | null;
   source_url: string | null;
   added_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InfoCard {
+  id: string;
+  household_id: string;
+  title: string;
+  body: string;
+  sort: number;
   created_at: string;
   updated_at: string;
 }
