@@ -7,6 +7,7 @@ import { errorMessage } from '../lib/storage';
 import type { Chore, Completion, Household, Member, Room, TurnAdjustment } from '../lib/types';
 import { Icon, memberColors } from '../components/ui';
 import { AdminPanel } from '../components/AdminPanel';
+import { shareInvite } from '../lib/invite';
 
 export function SettingsTab(props: {
   household: Household;
@@ -69,20 +70,10 @@ export function SettingsTab(props: {
     </button>
   );
 
-  const joinLink =`${location.origin}${location.pathname}?join=${household.join_code}`;
-
   async function share() {
-    const text = `Join our apartment on Chores with code ${household.join_code}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'Chores', text, url: joinLink });
-        return;
-      }
-      await navigator.clipboard.writeText(`${text}: ${joinLink}`);
-      props.notify('Invite copied');
-    } catch {
-      // Share sheet dismissed — nothing to do.
-    }
+    const result = await shareInvite(household);
+    if (result === 'copied') props.notify('Invite link copied. Paste it in a message.');
+    if (result === 'failed') props.notify(`Couldn't share. The code is ${household.join_code}`, true);
   }
 
   async function saveName() {

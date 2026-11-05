@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHousehold } from './useHousehold';
 import * as api from './lib/api';
+import { shareInvite } from './lib/invite';
 import { todayStr } from './lib/dates';
 import { choreStates, finishedChoreIds, type ChoreState } from './lib/status';
 import { errorMessage, getItem, removeItem, setItem, uuid } from './lib/storage';
@@ -130,6 +131,12 @@ export default function App() {
     })();
   }
 
+  async function invite() {
+    const result = await shareInvite(household!);
+    if (result === 'copied') notify('Invite link copied. Paste it in a message.');
+    if (result === 'failed') notify(`Couldn't share. The code is ${household!.join_code}`, true);
+  }
+
   function markDone(s: ChoreState) {
     const lockedUntil = locks.get(s.chore.id);
     if (lockedUntil) {
@@ -180,7 +187,12 @@ export default function App() {
           <h1>{TAB_TITLES[tab]}</h1>
           <div className="subtitle">{household.name}</div>
         </div>
-        <button className="me-chip" onClick={() => setTab('settings')}>{me.name}</button>
+        <div className="topbar-actions">
+          <button className="invite-btn" onClick={invite} aria-label="Invite roommates">
+            <Icon name="invite" size={18} /> <span>Invite</span>
+          </button>
+          <button className="me-chip" onClick={() => setTab('settings')}>{me.name}</button>
+        </div>
       </header>
 
       <main className="content">

@@ -6,7 +6,8 @@ import type { Household, Member } from '../lib/types';
 
 function initialCode(): string {
   try {
-    return new URLSearchParams(location.search).get('join')?.toUpperCase() ?? '';
+    const code = new URLSearchParams(location.search).get('join') ?? '';
+    return code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   } catch {
     return '';
   }
@@ -14,7 +15,8 @@ function initialCode(): string {
 
 /** First screen on a new phone: join an apartment with its code, or start one. */
 export function Welcome({ onJoined }: { onJoined: () => Promise<void> }) {
-  const [code, setCode] = useState(initialCode);
+  const [invited] = useState(initialCode); // code from an invite link, if any
+  const [code, setCode] = useState(invited);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +50,28 @@ export function Welcome({ onJoined }: { onJoined: () => Promise<void> }) {
       <p className="muted center">Who did what, and when, for your apartment.</p>
 
       {isIOS() && !isStandalone() && (
-        <div className="callout">
-          <strong>On iPhone:</strong> add this to your Home Screen first (Share button → Add to Home Screen), then
-          open it from there and join. Otherwise you'll have to join twice.
+        <div className="callout invite-callout">
+          {invited ? (
+            <>
+              <strong>You're invited! Your join code is</strong>
+              <span className="code">{invited}</span>
+              <span>
+                On iPhone, first tap the Share button → <strong>Add to Home Screen</strong>. Then open Chores from your
+                Home Screen and enter this code there. Joining here in Safari won't carry over to the Home Screen app.
+              </span>
+            </>
+          ) : (
+            <span>
+              <strong>On iPhone:</strong> add this to your Home Screen first (Share button → Add to Home Screen), then
+              open it from there and join. Otherwise you'll have to join twice.
+            </span>
+          )}
         </div>
       )}
 
       <form className="card form" onSubmit={join}>
-        <h2>Join your apartment</h2>
+        <h2>{invited ? "You're invited!" : 'Join your apartment'}</h2>
+        {invited && <p className="hint">The code from your invite is filled in. Just tap Join.</p>}
         <label>
           Join code
           <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABC123"
