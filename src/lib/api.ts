@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Chore, Completion, Household, Member } from './types';
+import type { Chore, Completion, Household, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './types';
 import { approxIntervalDays, type Schedule } from './schedule';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
@@ -32,12 +32,18 @@ async function fetchAllCompletions(householdId: string): Promise<Completion[]> {
 }
 
 export async function fetchData(householdId: string) {
-  const [members, chores, completions] = await Promise.all([
-    supabase.from('members').select('*').eq('household_id', householdId).order('created_at').then(check),
-    supabase.from('chores').select('*').eq('household_id', householdId).order('created_at').then(check),
-    fetchAllCompletions(householdId),
+  const q = (table: string, order = 'created_at') =>
+    supabase.from(table).select('*').eq('household_id', householdId).order(order).then(check);
+  const [members, chores, completions, rooms, adjustments, shopping, recipes] = await Promise.all([
+    q('members'), q('chores'), fetchAllCompletions(householdId), q('rooms', 'name'),
+    supabase.from('turn_adjustments').select('*').eq('household_id', householdId).then(check),
+    q('shopping_items'), q('recipes', 'title'),
   ]);
-  return { members: members as Member[], chores: chores as Chore[], completions };
+  return {
+    members: members as Member[], chores: chores as Chore[], completions,
+    rooms: rooms as Room[], adjustments: adjustments as TurnAdjustment[],
+    shopping: shopping as ShoppingItem[], recipes: recipes as Recipe[],
+  };
 }
 
 export async function createHousehold(name: string): Promise<Household> {
@@ -62,14 +68,24 @@ export async function updateMember(id: string, patch: Partial<Pick<Member, 'name
   check(await supabase.from('members').update(patch).eq('id', id));
 }
 
-export async function addChore(householdId: string, name: string, schedule: Schedule) {
-  check(await supabase.from('chores').insert({
-    household_id: householdId, name, schedule, interval_days: approxIntervalDays(schedule),
-  }));
+export interface ChoreFields {
+  name: string;
+  schedule: Schedule;
+  room_id: string | null;
+  rotation: string[];
 }
-export async function saveChore(id: string, name: string, schedule: Schedule) {
+const choreRow = (f: ChoreFields) => ({ ...f, interval_days: approxIntervalDays(f.schedule) });
+
+export async function addChore(householdId: string, fields: ChoreFields) {
+  check(await supabase.from('chores').insert({ household_id: householdId, ...choreRow(fields) }));
+}
+export async function saveChore(id: string, fields: ChoreFields) {
+  check(await supabase.from('chores').update(choreRow(fields)).eq('id', id));
+}
+/** Push the chore's due date out to `until` (null clears the snooze). */
+export async function snoozeChore(id: string, until: string | null) {
   check(await supabase.from('chores')
-    .update({ name, schedule, interval_days: approxIntervalDays(schedule) })
+    .update({ snoozed_until: until, snoozed_at: until ? new Date().toISOString() : null })
     .eq('id', id));
 }
 export async function updateChore(id: string, patch: Partial<Pick<Chore, 'name' | 'interval_days' | 'archived'>>) {
@@ -87,4 +103,72 @@ export async function updateCompletion(
 }
 export async function deleteCompletion(id: string) {
   check(await supabase.from('completions').delete().eq('id', id));
+}
+
+// ---------- Rooms ----------
+export async function addRoom(householdId: string, name: string): Promise<Room> {
+  return check(await supabase.from('rooms').insert({ household_id: householdId, name }).select().single()) as Room;
+}
+export async function renameRoom(id: string, name: string) {
+  check(await supabase.from('rooms').update({ name }).eq('id', id));
+}
+export async function deleteRoom(id: string) {
+  check(await supabase.from('rooms').delete().eq('id', id));
+}
+
+// ---------- Admin (PIN-protected; these functions return an error message or null) ----------
+async function rpcMessage(fn: string, args: Record<string, unknown>) {
+  const message = check(await supabase.rpc(fn, args)) as string | null;
+  if (message) throw new Error(message);
+}
+export async function hasAdminPin(): Promise<boolean> {
+  return Boolean(check(await supabase.rpc('has_admin_pin')));
+}
+export const checkAdminPin = (pin: string) => rpcMessage('check_admin_pin', { p_pin: pin });
+export const setAdminPin = (current: string, next: string) =>
+  rpcMessage('set_admin_pin', { p_current: current, p_new: next });
+export const setTurnCount = (pin: string, choreId: string, memberId: string, count: number) =>
+  rpcMessage('set_turn_count', { p_pin: pin, p_chore: choreId, p_member: memberId, p_count: count });
+
+// ---------- Shopping list ----------
+export async function addShoppingItems(householdId: string, names: string[], addedBy: string) {
+  const rows = names.map((name) => ({ household_id: householdId, name, added_by: addedBy }));
+  if (rows.length) check(await supabase.from('shopping_items').insert(rows));
+}
+export async function setShoppingDone(id: string, done: boolean) {
+  check(await supabase.from('shopping_items')
+    .update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', id));
+}
+export async function deleteShoppingItem(id: string) {
+  check(await supabase.from('shopping_items').delete().eq('id', id));
+}
+export async function clearBought(householdId: string) {
+  check(await supabase.from('shopping_items').delete().eq('household_id', householdId).eq('done', true));
+}
+
+// ---------- Recipes ----------
+export type RecipeFields = Pick<Recipe, 'title' | 'servings' | 'ingredients' | 'steps' | 'notes' | 'source_url'>;
+export async function addRecipe(householdId: string, fields: RecipeFields, addedBy: string): Promise<Recipe> {
+  return check(await supabase.from('recipes')
+    .insert({ household_id: householdId, added_by: addedBy, ...fields }).select().single()) as Recipe;
+}
+export async function saveRecipe(id: string, fields: RecipeFields) {
+  check(await supabase.from('recipes').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id));
+}
+export async function deleteRecipe(id: string) {
+  check(await supabase.from('recipes').delete().eq('id', id));
+}
+/** Reads a recipe from a web page (via the import-recipe server function). */
+export async function importRecipe(url: string): Promise<RecipeFields> {
+  const { data, error } = await supabase.functions.invoke('import-recipe', { body: { url } });
+  if (error) {
+    // The function sends a readable message in its JSON body.
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    throw new Error(body?.error ?? "Couldn't reach the recipe importer. Is the import-recipe function deployed?");
+  }
+  return data as RecipeFields;
+}
+/** Adds one item with a client-made id, so it can be checked off before the server replies. */
+export async function addShoppingItem(item: Pick<ShoppingItem, 'id' | 'household_id' | 'name' | 'added_by'>) {
+  check(await supabase.from('shopping_items').insert(item));
 }

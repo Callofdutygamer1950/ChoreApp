@@ -7,7 +7,7 @@ import {
   type Ends, type Freq, type Schedule,
 } from '../lib/schedule';
 import { errorMessage } from '../lib/storage';
-import type { Chore } from '../lib/types';
+import type { Chore, Member, Room } from '../lib/types';
 
 type Mode = 'once' | 'after' | 'repeat';
 type Monthly = 'day' | 'nth' | 'last';
@@ -119,6 +119,9 @@ function buildSchedule(f: Form): Schedule | string {
 export function ChoreSheet(props: {
   chore: Chore | null;
   householdId: string;
+  rooms: Room[];
+  members: Member[];
+  colors: Map<string, string>;
   onClose: () => void;
   onSaved: () => void;
   notify: (text: string, error?: boolean) => void;
@@ -130,6 +133,10 @@ export function ChoreSheet(props: {
     formFromSchedule(chore ? scheduleOf(chore) : { kind: 'repeat', freq: 'week', every: 1, start: today }, today));
   const [showCustom, setShowCustom] = useState(() => presetOf(form) === 'custom');
   const [busy, setBusy] = useState(false);
+  const [roomId, setRoomId] = useState(chore?.room_id ?? '');
+  const activeMembers = props.members.filter((m) => !m.archived);
+  const [rotation, setRotation] = useState<string[]>(
+    () => (chore?.rotation ?? []).filter((id) => activeMembers.some((m) => m.id === id)));
 
   const preset = showCustom ? 'custom' : presetOf(form);
   const built = buildSchedule(form);
@@ -174,8 +181,26 @@ export function ChoreSheet(props: {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || typeof built === 'string') return;
-    if (chore) run(() => api.saveChore(chore.id, name.trim(), built), 'Chore saved');
-    else run(() => api.addChore(props.householdId, name.trim(), built), 'Chore added');
+    const fields = { name: name.trim(), schedule: built, room_id: roomId || null, rotation };
+    if (chore) run(() => api.saveChore(chore.id, fields), 'Chore saved');
+    else run(() => api.addChore(props.householdId, fields), 'Chore added');
+  }
+
+  async function chooseRoom(value: string) {
+    if (value !== '__new') return setRoomId(value);
+    const roomName = prompt('New room name (e.g. Kitchen)')?.trim();
+    if (!roomName) return;
+    try {
+      const room = await api.addRoom(props.householdId, roomName.slice(0, 40));
+      setRoomId(room.id);
+      props.onSaved();
+    } catch (e) {
+      props.notify(errorMessage(e), true);
+    }
+  }
+
+  function toggleRotation(id: string) {
+    setRotation((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]));
   }
 
   function remove() {
@@ -194,6 +219,15 @@ export function ChoreSheet(props: {
           Name
           <input value={name} maxLength={60} placeholder="e.g. Take out trash" autoFocus={!chore}
             onChange={(e) => setName(e.target.value)} />
+        </label>
+
+        <label>
+          Room
+          <select value={roomId} onChange={(e) => chooseRoom(e.target.value)}>
+            <option value="">No room</option>
+            {props.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            <option value="__new">+ New room…</option>
+          </select>
         </label>
 
         <label>
@@ -292,6 +326,25 @@ export function ChoreSheet(props: {
             </label>
           </fieldset>
         )}
+
+        <fieldset className="rotation">
+          <legend>Whose turn <span className="muted">(optional)</span></legend>
+          <p className="hint">
+            Tap people in turn order. The turn goes to whoever has done it the least, never the same person twice in a row.
+          </p>
+          <div className="rotation-chips">
+            {activeMembers.map((m) => {
+              const pos = rotation.indexOf(m.id);
+              return (
+                <button key={m.id} type="button" className={`person-chip${pos >= 0 ? ' on' : ''}`}
+                  aria-pressed={pos >= 0} onClick={() => toggleRotation(m.id)}>
+                  {pos >= 0 ? <b>{pos + 1}</b> : <i style={{ background: props.colors.get(m.id) }} />}
+                  {m.name}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <p className={`summary${problem ? ' error-text' : ''}`}>{problem ?? scheduleSummary(built as Schedule)}</p>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ensureSession, supabase } from './lib/supabase';
 import { fetchData, fetchHousehold } from './lib/api';
 import { errorMessage } from './lib/storage';
-import type { Chore, Completion, Household, Member } from './lib/types';
+import type { Chore, Completion, Household, Member, Recipe, Room, ShoppingItem, TurnAdjustment } from './lib/types';
 
 export type Phase = 'loading' | 'error' | 'no-household' | 'ready';
 
@@ -14,6 +14,10 @@ export function useHousehold() {
   const [members, setMembers] = useState<Member[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
   const [completions, setCompletions] = useState<Completion[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [adjustments, setAdjustments] = useState<TurnAdjustment[]>([]);
+  const [shopping, setShopping] = useState<ShoppingItem[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const householdId = household?.id;
   const loadSeq = useRef(0);
 
@@ -24,6 +28,10 @@ export function useHousehold() {
     setMembers(data.members);
     setChores(data.chores);
     setCompletions(data.completions);
+    setRooms(data.rooms);
+    setAdjustments(data.adjustments);
+    setShopping(data.shopping);
+    setRecipes(data.recipes);
   }, []);
 
   /** Re-checks which apartment this phone is in, then loads everything. */
@@ -87,6 +95,13 @@ export function useHousehold() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members', filter }, schedule)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chores', filter }, schedule)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'completions', filter }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turn_adjustments', filter }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_items', filter }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes', filter }, schedule)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_items' }, schedule)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'recipes' }, schedule)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'rooms' }, schedule)
       // Deletes can't be filtered by apartment, so listen to all of them.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'completions' }, schedule)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'households', filter: `id=eq.${householdId}` }, schedule)
@@ -110,8 +125,8 @@ export function useHousehold() {
   }, [householdId, reload]);
 
   return {
-    phase, error, household, members, chores, completions,
-    setCompletions, reload, refreshHousehold,
+    phase, error, household, members, chores, completions, rooms, adjustments, shopping, recipes,
+    setCompletions, setShopping, reload, refreshHousehold,
   };
 }
 

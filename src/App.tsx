@@ -8,15 +8,18 @@ import type { Chore, Completion, Member } from './lib/types';
 import { Icon, memberColors, nextDefaultColor, Toast, type ToastData } from './components/ui';
 import { EntrySheet, MemberSheet } from './components/sheets';
 import { ChoreSheet } from './components/ChoreSheet';
+import { ChoreDetailSheet } from './components/ChoreDetailSheet';
+import { KitchenTab } from './screens/KitchenTab';
 import { PickMember, Welcome } from './screens/Onboarding';
 import { ChoresTab } from './screens/ChoresTab';
 import { CalendarTab } from './screens/CalendarTab';
 import { SettingsTab } from './screens/SettingsTab';
 
-type Tab = 'chores' | 'calendar' | 'settings';
+type Tab = 'chores' | 'calendar' | 'kitchen' | 'settings';
 type Sheet =
   | { kind: 'entry'; entry: Completion | null; date?: string }
   | { kind: 'chore'; chore: Chore | null }
+  | { kind: 'detail'; choreId: string }
   | { kind: 'member'; member: Member | null };
 
 /** Which person this phone belongs to, remembered per apartment. */
@@ -45,19 +48,22 @@ function useToday() {
 
 const COOLDOWN_MS = 2 * 60_000;
 
-const TAB_TITLES:Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', settings: 'Settings' };
+const TAB_TITLES: Record<Tab, string> = { chores: 'Chores', calendar: 'Calendar', kitchen: 'Kitchen', settings: 'Settings' };
+const TAB_ICONS: Record<Tab, string> = { chores: 'list', calendar: 'calendar', kitchen: 'cart', settings: 'settings' };
 
 export default function App() {
   const hh = useHousehold();
-  const { household, members, chores, completions } = hh;
+  const { household, members, chores, completions, rooms, adjustments } = hh;
   const [memberId, setMemberId] = useStoredMember(household?.id);
   const [tab, setTab] = useState<Tab>('chores');
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const today = useToday();
 
-  const states = useMemo(() => choreStates(chores, completions, today), [chores, completions, today]);
-  const finishedIds = useMemo(() => finishedChoreIds(chores, completions, today), [chores, completions, today]);
+  const ctx = useMemo(() => ({ completions, adjustments, members, today }), [completions, adjustments, members, today]);
+  const states = useMemo(() => choreStates(chores, ctx), [chores, ctx]);
+  const finishedIds = useMemo(() => finishedChoreIds(chores, ctx), [chores, ctx]);
+  const colors = useMemo(() => memberColors(members), [members]);
   const notify = useCallback((text: string, error = false) => setToast({ text, error }), []);
   const dismissToast = useCallback(() => setToast(null), []);
   const closeSheet = useCallback(() => setSheet(null), []);
@@ -179,7 +185,8 @@ export default function App() {
 
       <main className="content">
         {tab === 'chores' && (
-          <ChoresTab states={states} members={members} today={today} onDone={markDone} locked={locks}
+          <ChoresTab states={states} members={members} rooms={rooms} meId={me.id} today={today} onDone={markDone} locked={locks}
+            onOpen={(st) => setSheet({ kind: 'detail', choreId: st.chore.id })}
             onAddChore={() => setSheet({ kind: 'chore', chore: null })} />
         )}
         {tab === 'calendar' && (
@@ -187,8 +194,13 @@ export default function App() {
             onEdit={(entry) => setSheet({ kind: 'entry', entry })}
             onLog={(date) => setSheet({ kind: 'entry', entry: null, date })} />
         )}
+        {tab === 'kitchen' && (
+          <KitchenTab householdId={household.id} shopping={hh.shopping} setShopping={hh.setShopping}
+            recipes={hh.recipes} members={members} meId={me.id} reload={hh.reload} notify={notify} />
+        )}
         {tab === 'settings' && (
           <SettingsTab household={household} members={members} chores={chores} me={me} finishedIds={finishedIds}
+            rooms={rooms} completions={completions} adjustments={adjustments}
             onSwitchPerson={() => setMemberId(null)}
             onEditChore={(chore) => setSheet({ kind: 'chore', chore })}
             onEditMember={(member) => setSheet({ kind: 'member', member })}
@@ -197,10 +209,10 @@ export default function App() {
       </main>
 
       <nav className="tabbar">
-        {(['chores', 'calendar', 'settings'] as Tab[]).map((t) => (
+        {(['chores', 'calendar', 'kitchen', 'settings'] as Tab[]).map((t) => (
           <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}
             aria-current={tab === t ? 'page' : undefined}>
-            <Icon name={t === 'chores' ? 'list' : t} />
+            <Icon name={TAB_ICONS[t]} />
             <span>{TAB_TITLES[t]}</span>
           </button>
         ))}
@@ -212,9 +224,20 @@ export default function App() {
           onClose={closeSheet} onSaved={hh.reload} notify={notify} />
       )}
       {sheet?.kind === 'chore' && (
-        <ChoreSheet chore={sheet.chore} householdId={household.id}
+        <ChoreSheet chore={sheet.chore} householdId={household.id} rooms={rooms} members={members} colors={colors}
           onClose={closeSheet} onSaved={hh.reload} notify={notify} />
       )}
+      {sheet?.kind === 'detail' && (() => {
+        const st = states.find((x) => x.chore.id === sheet.choreId);
+        if (!st) return null; // finished or deleted while open
+        return (
+          <ChoreDetailSheet state={st} completions={completions} adjustments={adjustments} members={members}
+            rooms={rooms} colors={colors} meId={me.id} today={today} locked={locks.has(st.chore.id)}
+            onDone={() => markDone(st)} onEdit={() => setSheet({ kind: 'chore', chore: st.chore })}
+            onEditEntry={(entry) => setSheet({ kind: 'entry', entry })}
+            onClose={closeSheet} onSaved={hh.reload} notify={notify} />
+        );
+      })()}
       {sheet?.kind === 'member' && (
         <MemberSheet member={sheet.member} householdId={household.id}
           currentColor={sheet.member ? memberColors(members).get(sheet.member.id)! : nextDefaultColor(members)}

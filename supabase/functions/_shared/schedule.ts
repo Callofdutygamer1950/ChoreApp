@@ -229,3 +229,31 @@ export function scheduleSummary(s: Schedule): string {
   if (s.ends?.type === 'count') text += `, ${s.ends.count} ${s.ends.count === 1 ? 'time' : 'times'}`;
   return text;
 }
+
+// ---------- Snooze / skip ----------
+
+export interface Snooze {
+  until: string | null; // not due before this day
+  at: string | null; // when the snooze was set (ISO timestamp)
+}
+
+/**
+ * A snooze pushes the due date out, until someone marks the chore done after the snooze
+ * was set. A snooze to a day before the normal due date has no effect.
+ */
+export function applySnooze(due: Due, snooze: Snooze, lastCreatedAt: string | null): Due & { snoozed: boolean } {
+  const inactive = { ...due, snoozed: false };
+  if (due.finished || !snooze.until || !snooze.at) return inactive;
+  if (lastCreatedAt && Date.parse(lastCreatedAt) > Date.parse(snooze.at)) return inactive;
+  if (due.due && snooze.until <= due.due) return inactive;
+  return { due: snooze.until, finished: false, snoozed: true };
+}
+
+/** The next time it would be due after skipping the current one (null for one-time chores). */
+export function nextDueAfterSkip(s: Schedule, currentDue: string | null, today: string): string | null {
+  const base = Math.max(currentDue ? toNum(currentDue) : toNum(today), toNum(today));
+  if (s.kind === 'once') return null;
+  if (s.kind === 'after') return toStr(base + Math.max(1, s.days));
+  const next = nextOccurrence(s, base + 1);
+  return next === null ? null : toStr(next);
+}

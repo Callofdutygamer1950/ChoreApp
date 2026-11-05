@@ -69,6 +69,9 @@ const ICONS: Record<string, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   left: <path d="m15 5-7 7 7 7" />,
   right: <path d="m9 5 7 7-7 7" />,
+  cart: <><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.3h8.4a1.5 1.5 0 0 0 1.5-1.2L21 8H6.6" /></>,
+  link: <><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" /><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" /></>,
+  trash: <><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13" /></>,
   note: <><path d="M5 4h14v12l-4 4H5z" /><path d="M15 20v-4h4" /></>,
 };
 
